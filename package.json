@@ -1,0 +1,19 @@
+{
+  "devDependencies": {
+    "copy-webpack-plugin": "^10.2.4",
+    "css-loader": "^6.7.1",
+    "html-loader": "^3.1.0",
+    "html-webpack-plugin": "^5.5.0",
+    "http-server": "^14.1.0",
+    "style-loader": "^3.3.1",
+    "ts-loader": "^9.2.8",
+    "typescript": "^4.6.3",
+    "webpack": "^5.72.0",
+    "webpack-cli": "^4.9.2"
+  },
+  "dependencies": {
+    "@ecodev/natural-gallery-js": "^8.0.2",
+    "sql.js-httpvfs": "^0.8.11",
+    "ts-debounce": "^4.0.0"
+  }
+}

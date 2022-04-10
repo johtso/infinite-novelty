@@ -1,0 +1,31 @@
+.natural-gallery-js .figure.zoomable:hover .image,
+.natural-gallery-js .image.zoomable:hover{
+    /* This is the default hover effect when hovering the element that opens PhotoSwipe */
+    transform: none !important;
+}
+
+button.link_button {
+    background: url("icons/external-link.png") center no-repeat;
+    background-size: 22px 22px;
+    width: 44px;
+    height: 44px;
+    position: relative;
+    cursor: pointer;
+    overflow: visible;
+    -webkit-appearance: none;
+    display: block;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    float: right;
+    opacity: 0.75;
+    -webkit-transition: opacity 0.2s;
+    transition: opacity 0.2s;
+    -webkit-box-shadow: none;
+    box-shadow: none;
+    /* background-position: -44px -44px; */
+}
+
+button.link_button:hover {
+    opacity: 1;
+}
