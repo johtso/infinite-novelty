@@ -17,7 +17,7 @@ async function initWorker() {
     [
       {
         from: "jsonconfig",
-        configUrl: "https://johtso.github.io/iabi-data/config.json"
+        configUrl: "https://data.infinitenovelty.com/file/iabi-data/config.json"
       }
     ],
     workerUrl.toString(),
