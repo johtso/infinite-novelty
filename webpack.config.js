@@ -29,7 +29,7 @@ module.exports = {
       extensions: [".tsx", ".ts", ".js"],
     },
     output: {
-      filename: "bundle.js",
+      filename: '[name].[contenthash].js',
     },
     devServer: {
       publicPath: "/dist",
