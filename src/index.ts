@@ -7,12 +7,14 @@ import "../node_modules/@ecodev/natural-gallery-js/natural-gallery.css";
 import "photoswipe/dist/photoswipe.css";
 import "photoswipe/dist/default-skin/default-skin.css";
 import PhotoSwipe from "photoswipe";
+import "ninja-keys";
 import {
   idFromFlickrUrl,
   flickrThumbUrl,
   flickrOrigUrl,
 } from "./utils";
 import { initWorker } from "./db";
+import { NinjaKeys } from "ninja-keys";
 
 
 interface Image {
@@ -27,6 +29,27 @@ interface Image {
   comments: number;
   views: number;
 }
+const ninja = document.querySelector('ninja-keys') as NinjaKeys;
+ninja.data = [
+  {
+    id: 'Random',
+    title: 'Show random images',
+    mdIcon: 'casino',
+    // parent: 'Theme',
+    handler: () => {
+      updateUrlHash(null, "random");
+    },
+  },
+  {
+    id: 'Most Popular',
+    title: 'Show most popular images',
+    mdIcon: 'favorite',
+    // parent: 'Theme',
+    handler: () => {
+      updateUrlHash(null, "popular");
+    },
+  },
+];
 
 async function popularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
   let images;
@@ -136,19 +159,34 @@ var tenThousand = { id: "21272868031", server: "5700", secret: "6e7eb06136", ori
 type Cursor = [Image["faves"], Image["views"], Image["comments"], Image["id"], Image["random_id"]];
 
 
-function updateUrlHash(image: Image) {
-  let cursor = [image.faves, image.views, image.comments, image.id, image.random_id];
-  let currentRoute = parseCurrentURLHash()['route'];
-  let base64 = objToBase64(cursor);
-  if (currentRoute) {
-    window.history.replaceState({}, "", `#${currentRoute}/${base64}`);
-  } else {
-    window.history.replaceState({}, "", `#${base64}`);
+function updateUrlHash(image?: Image | null, route?: Route | null) {
+  if (!image && !route) {
+    return;
   }
+  let currentURL = parseCurrentURLHash();
+  let newHash = '#'
+  if (!route) {
+    route = currentURL.route;
+  }
+  newHash += route;
+  let cursor: Cursor | null = null;
+  if (image === undefined) {
+    cursor = currentURL.cursor;
+  } else if (image === null) {
+    cursor = null;
+  } else {
+    cursor = [image.faves, image.views, image.comments, image.id, image.random_id];
+  }
+  if (cursor) {
+    newHash += '/' + objToBase64(cursor);
+  }
+
+  location.hash = newHash;
 }
 
-function parseCurrentURLHash(): { cursor: Cursor | null, route: "random" | "popular" | null } {
-  let hash = window.location.hash;
+type Route = "popular" | "random";
+
+function parseURLHash(hash: string): { cursor: Cursor | null, route: Route | null } {
   if (hash.length > 1) {
     let route: "random" | "popular" | null = null;
     let [rawRoute, b64] = hash.substring(1).split("/");
@@ -167,39 +205,28 @@ function parseCurrentURLHash(): { cursor: Cursor | null, route: "random" | "popu
   }
 }
 
-async function main() {
-  const worker = await initWorker();
-  var allImages = {} as { [id: string]: Image };
-  // get location anchor
-  let anchor = new URL(window.location.href).hash.substring(1);
-  let currentURL = parseCurrentURLHash();
-  // var initialCursor: Cursor | null = null;;
-  // if (anchor) {
-  //   initialCursor = base64ToObj(anchor);
-  // }
-  let initialCursor: Cursor | null = null;
-  if (currentURL?.cursor) {
-    initialCursor = currentURL.cursor;
-  }
+function parseCurrentURLHash(): { cursor: Cursor | null, route: Route | null } {
+  let hash = window.location.hash;
+  return parseURLHash(hash);
+}
 
-  let routeMap = {
-    "random": randomQuery,
-    "popular": popularQuery,
-  }
+var ROUTES = {
+  "random": randomQuery,
+  "popular": popularQuery,
+}
 
-  let route = currentURL?.route || "popular";
-  let query = routeMap[route];
+var currentQuery = ROUTES["popular"];
+var gallery = null as Masonry | null;
 
-  let { images, cursor } = await query(worker, 10, initialCursor, true);
-  for (let image of images) {
-    allImages[image.id] = image;
-  }
-  let cursors = { "10": cursor } as { [key: string]: Cursor };
-  var elementRef = document.getElementById('gallery') as HTMLElement;
-  var photoswipeRef = document.getElementsByClassName('pswp')[0] as HTMLElement;
-
-  var gallery = new Masonry(
-    elementRef,
+function initialise(
+    worker: WorkerHttpvfs,
+    cursors: { [key: string]: Cursor },
+    allImages: { [id: string]: Image },
+    ) {
+  let galleryRef = document.getElementById('gallery') as HTMLElement;
+  let photoswipeRef = document.getElementsByClassName('pswp')[0] as HTMLElement;
+  let gallery = new Masonry(
+    galleryRef,
     {
       // 'rowHeight': 500,
       'columnWidth': 500,
@@ -211,9 +238,99 @@ async function main() {
     photoswipeRef
   );
 
-  gallery.init();
-  gallery.addItems(images.map(marshalPhoto));
+  gallery.addEventListener('pagination', function (ev) {
+    console.log("pagination", ev.detail);
+    
+    let cursor = cursors[ev.detail.offset.toString()];
 
+    // set location anchor to the cursor
+    if (ev.detail.offset) {
+      console.assert(cursor);
+    }
+
+    let isInitialPage = (ev.detail.offset == 0);
+    if (isInitialPage) {
+      let currCursor = parseCurrentURLHash().cursor;
+      if (currCursor) {
+        cursor = currCursor;
+      }
+    }
+    console.log("pagination cursor", cursor);
+    currentQuery(worker, ev.detail.limit, cursor, isInitialPage)
+      .then(({ images, cursor }) => {
+        for (let image of images) {
+          allImages[image.id] = image;
+        }
+        cursors[ev.detail.offset + ev.detail.limit] = cursor;
+        gallery.addItems(images.map(marshalPhoto));
+      });
+  });
+  
+  var photoswipe: PhotoSwipe<any>;
+  var linkButton = document.getElementsByClassName('link_button')[0] as HTMLElement;
+  gallery.addEventListener('zoom', function (evt) {
+    photoswipe = evt.detail.photoswipe;
+    linkButton.addEventListener('click', function (evt) {
+      let currentItem = photoswipe.currItem;
+      let src = currentItem.src;
+      if (src) {
+        let flickrId = idFromFlickrUrl(src);
+        if (flickrId) {
+          let flickrPageUrl = `https://www.flickr.com/photos/internetarchivebookimages/${flickrId}`;
+          window.open(flickrPageUrl, "_blank");
+        }
+      }
+    });
+  });
+
+  gallery.init();
+  return gallery;
+}
+
+
+async function main() {
+  const worker = await initWorker();
+  var allImages = {} as { [id: string]: Image };
+  let cursors = {} as { [key: string]: Cursor };
+  
+  window.addEventListener('hashchange', function (evt) {
+    onHashChange(evt.newURL, evt.oldURL);
+  });
+  // when we first load trigger a hash change to get things started.
+  onHashChange(window.location.toString())
+  
+  // on scroll event debounced
+  let debouncedOnScroll = debounce(onScroll, 100);
+  window.addEventListener('scroll', debouncedOnScroll);
+
+  function onHashChange(newURL: string, oldURL?: string) {
+    let newRoute = parseURLHash(new URL(newURL).hash).route;
+    if (!newRoute) {
+      updateUrlHash(undefined, "popular");
+      return;
+    }
+
+    if (oldURL) {
+      let oldRoute = parseURLHash(new URL(oldURL).hash).route;
+      if (oldRoute === newRoute) {
+        return;
+      }
+    }
+
+    onRouteChange(newRoute);
+  }
+
+  function onRouteChange(route: Route) {
+    currentQuery = ROUTES[route];
+    if (!gallery) {
+      gallery = initialise(worker, cursors, allImages);
+    } else {
+      gallery.clear();
+      window.scrollTo(0, 0);
+    }
+  }
+
+  // listen for anchor changes
 
   function onScroll(event: Event) {
     let firstColumn = document.querySelector(".column") as HTMLElement;
@@ -235,47 +352,6 @@ async function main() {
     }
   }
 
-  // on scroll event debounced
-  let debouncedOnScroll = debounce(onScroll, 100);
-  window.addEventListener('scroll', debouncedOnScroll);
-
-
-  // whenever the user scrolls the page, find the first image visible in the viewport and update the anchor
-
-  gallery.addEventListener('pagination', function (ev) {
-    console.log("pagination", ev.detail);
-
-    let cursor = cursors[ev.detail.offset.toString()];
-
-    // set location anchor to the cursor
-    console.assert(cursor);
-
-    query(worker, ev.detail.limit, cursor)
-      .then(({ images, cursor }) => {
-        for (let image of images) {
-          allImages[image.id] = image;
-        }
-        cursors[ev.detail.offset + ev.detail.limit] = cursor;
-        gallery.addItems(images.map(marshalPhoto));
-      });
-  });
-
-  var photoswipe: PhotoSwipe<any>;
-  var linkButton = document.getElementsByClassName('link_button')[0] as HTMLElement;
-  gallery.addEventListener('zoom', function (evt) {
-    photoswipe = evt.detail.photoswipe;
-    linkButton.addEventListener('click', function (evt) {
-      let currentItem = photoswipe.currItem;
-      let src = currentItem.src;
-      if (src) {
-        let flickrId = idFromFlickrUrl(src);
-        if (flickrId) {
-          let flickrPageUrl = `https://www.flickr.com/photos/internetarchivebookimages/${flickrId}`;
-          window.open(flickrPageUrl, "_blank");
-        }
-      }
-    });
-  });
 }
 
 main();

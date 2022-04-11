@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@ecodev/natural-gallery-js": "^8.0.2",
+    "ninja-keys": "^1.1.12",
     "sql.js-httpvfs": "^0.8.11",
     "ts-debounce": "^4.0.0"
   }
