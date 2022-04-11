@@ -234,6 +234,9 @@ function initialise(
       'showLabels': 'never',
       'infiniteScrollOffset': -800,
       'activable': false,
+      'photoSwipeOptions': {
+        'history': false,
+      },
     },
     photoswipeRef
   );
@@ -268,19 +271,23 @@ function initialise(
   
   var photoswipe: PhotoSwipe<any>;
   var linkButton = document.getElementsByClassName('link_button')[0] as HTMLElement;
+
+  function onFlickrButtonClick(evt: MouseEvent) {
+    let currentItem = photoswipe.currItem;
+    let src = currentItem.src;
+    if (src) {
+      let flickrId = idFromFlickrUrl(src);
+      if (flickrId) {
+        let flickrPageUrl = `https://www.flickr.com/photos/internetarchivebookimages/${flickrId}`;
+        window.open(flickrPageUrl, "_blank");
+      }
+    }
+  }
+
   gallery.addEventListener('zoom', function (evt) {
     photoswipe = evt.detail.photoswipe;
-    linkButton.addEventListener('click', function (evt) {
-      let currentItem = photoswipe.currItem;
-      let src = currentItem.src;
-      if (src) {
-        let flickrId = idFromFlickrUrl(src);
-        if (flickrId) {
-          let flickrPageUrl = `https://www.flickr.com/photos/internetarchivebookimages/${flickrId}`;
-          window.open(flickrPageUrl, "_blank");
-        }
-      }
-    });
+    linkButton.removeEventListener('click', onFlickrButtonClick);
+    linkButton.addEventListener('click', onFlickrButtonClick);
   });
 
   gallery.init();
