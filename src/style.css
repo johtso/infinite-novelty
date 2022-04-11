@@ -29,3 +29,7 @@ button.link_button {
 button.link_button:hover {
     opacity: 1;
 }
+
+.natural-gallery-js .figure .image {
+    z-index: auto !important;
+}
