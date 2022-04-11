@@ -214,8 +214,9 @@ var ROUTES = {
   "random": randomQuery,
   "popular": popularQuery,
 }
+const DEFAULT_ROUTE = "random";
 
-var currentQuery = ROUTES["popular"];
+var currentQuery = ROUTES[DEFAULT_ROUTE];
 var gallery = null as Masonry | null;
 
 function initialise(
@@ -232,7 +233,7 @@ function initialise(
       'columnWidth': 500,
       'lightbox': true,
       'showLabels': 'never',
-      'infiniteScrollOffset': -800,
+      'infiniteScrollOffset': -1000,
       'activable': false,
       'photoSwipeOptions': {
         'history': false,
@@ -313,7 +314,7 @@ async function main() {
   function onHashChange(newURL: string, oldURL?: string) {
     let newRoute = parseURLHash(new URL(newURL).hash).route;
     if (!newRoute) {
-      updateUrlHash(undefined, "popular");
+      updateUrlHash(undefined, DEFAULT_ROUTE);
       return;
     }
 
