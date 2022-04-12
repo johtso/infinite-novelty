@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@ecodev/natural-gallery-js": "^8.0.2",
+    "commandbar": "^1.6.4",
     "ninja-keys": "^1.1.12",
     "sql.js-httpvfs": "^0.8.11",
     "ts-debounce": "^4.0.0"
