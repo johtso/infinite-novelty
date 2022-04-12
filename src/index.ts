@@ -289,7 +289,7 @@ function initialise(
       'columnWidth': 400,
       'lightbox': true,
       'showLabels': 'never',
-      'infiniteScrollOffset': -1000,
+      'infiniteScrollOffset': -1500,
       'activable': false,
       'photoSwipeOptions': {
         'history': false,
@@ -347,6 +347,13 @@ function initialise(
     linkButton.addEventListener('click', onFlickrButtonClick);
   });
 
+
+  var loadingSpinner = document.getElementsByClassName('loadingspinner')[0] as HTMLElement;
+  function onItemDisplayed() {
+    loadingSpinner.hidden = true;
+  }
+  gallery.addEventListener('item-displayed', onItemDisplayed);
+
   gallery.init();
   return gallery;
 }
@@ -390,6 +397,8 @@ async function main() {
       gallery = initialise(worker, cursors, allImages);
     } else {
       gallery.clear();
+      let loadingSpinner = document.getElementsByClassName('loadingspinner')[0] as HTMLElement;
+      loadingSpinner.hidden = false;
       window.scrollTo(0, 0);
     }
   }

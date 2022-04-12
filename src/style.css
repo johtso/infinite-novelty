@@ -33,3 +33,45 @@ button.link_button:hover {
 .natural-gallery-js .figure .image {
     z-index: auto !important;
 }
+
+[aria-label="powered-by-commandbar"] {
+    display: none !important;
+}
+
+[aria-label="feedback"] {
+    display: none !important;
+}
+
+.loadingspinner {
+	pointer-events: none;
+	width: 2.5em;
+	height: 2.5em;
+	border: 0.4em solid transparent;
+	border-color: #eee;
+	border-top-color: #55492b;
+	border-radius: 50%;
+	animation: loadingspin 1s linear infinite;
+    position: fixed;
+    z-index: 999;
+    overflow: show;
+    margin: auto;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+}
+
+@keyframes loadingspin {
+	100% {
+			transform: rotate(360deg)
+	}
+}
+
+/* body {
+	height: 100vh;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+} */
