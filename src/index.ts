@@ -286,7 +286,7 @@ function initialise(
     galleryRef,
     {
       // 'rowHeight': 500,
-      'columnWidth': 500,
+      'columnWidth': 400,
       'lightbox': true,
       'showLabels': 'never',
       'infiniteScrollOffset': -1000,
