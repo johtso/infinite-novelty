@@ -22,7 +22,7 @@ async function initWorker() {
         config: {
           serverMode: "full", // file is just a plain old full sqlite database
           requestChunkSize: 4096, // the page size of the  sqlite database (by default 4096)
-          url: (__MODE__ === "production") ? "https://data.infinitenovelty.com/file/iabi-data/db.sqlite" : "db.sqlite"
+          url: (__MODE__ === "production") ? "https://data.infinitenovelty.com/file/iabi-data/db.2.sqlite" : "db.sqlite"
         }
       }
       // {
