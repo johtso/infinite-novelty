@@ -1,7 +1,30 @@
+const webpack = require('webpack');
+
 const CopyPlugin = require('copy-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
-module.exports = {
+
+module.exports = (env: any, argv: any) => {
+  let plugins = [    
+    new HtmlWebpackPlugin({
+      template: './index.html',
+    }),
+    new webpack.DefinePlugin({
+      __MODE__: JSON.stringify(argv.mode),
+    })
+  ]
+
+  if (argv.mode === 'development') {
+    plugins.push(
+      new CopyPlugin({
+        patterns: [
+          { from: '../iabi_data/temp.sqlite', to: 'db.sqlite' },
+        ]
+      })
+    )
+  }
+
+  return {
     entry: "./src/index.ts",
     module: {
       rules: [
@@ -20,11 +43,7 @@ module.exports = {
         }
       ],
     },
-    plugins: [    
-      new HtmlWebpackPlugin({
-        template: './index.html',
-      }),
-    ],
+    "plugins": plugins,
     resolve: {
       extensions: [".tsx", ".ts", ".js"],
     },
@@ -35,3 +54,4 @@ module.exports = {
       publicPath: "/dist",
     },
   };
+};

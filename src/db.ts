@@ -1,5 +1,7 @@
 import { createDbWorker } from "sql.js-httpvfs";
 
+declare var __MODE__: string;
+
 // sadly there's no good way to package workers and wasm directly so you need a way to get these two URLs from your bundler.
 // This is the webpack5 way to create a asset bundle of the worker and wasm:
 const workerUrl = new URL(
@@ -14,11 +16,19 @@ const wasmUrl = new URL(
 
 async function initWorker() {
   const worker = await createDbWorker(
-    [
+    [ 
       {
-        from: "jsonconfig",
-        configUrl: "https://data.infinitenovelty.com/file/iabi-data/config.json"
+        from: "inline",
+        config: {
+          serverMode: "full", // file is just a plain old full sqlite database
+          requestChunkSize: 4096, // the page size of the  sqlite database (by default 4096)
+          url: (__MODE__ === "production") ? "https://data.infinitenovelty.com/file/iabi-data/db.sqlite" : "db.sqlite"
+        }
       }
+      // {
+      //   from: "jsonconfig",
+      //   configUrl: "https://data.infinitenovelty.com/file/iabi-data/config.json"
+      // }
     ],
     workerUrl.toString(),
     wasmUrl.toString(),

@@ -18,7 +18,7 @@ import { NinjaKeys } from "ninja-keys";
 
 
 interface Image {
-  random_id: number;
+  rowid: number;
   id: string;
   server: string;
   secret: string;
@@ -63,23 +63,25 @@ async function popularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Curso
     let comparator = initial ? "<=" : "<";
     images = await worker.db.query(`
       select
-        views, faves, comments, id, server, secret, original_secret, width, height, random_id from images
+        rowid, * from images
       where
-        (faves, views, comments, id) ${comparator} (${faves}, ${views}, ${comments}, '${id}')
+        ((faves, views, comments, id) ${comparator} (${faves}, ${views}, ${comments}, '${id}')) and faves > 0
       order by
         faves desc, views desc, comments desc, id desc
       limit ${limit};`) as Image[];
   } else {
     images = await worker.db.query(`
       select
-        views, faves, comments, id, server, secret, original_secret, width, height, random_id from images
+        rowid, * from images
+      where
+        faves > 0
       order by
         faves desc, views desc, comments desc, id desc
       limit ${limit};`) as Image[];
   }
 
   let lastImage = images[images.length - 1];
-  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.random_id];
+  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.rowid];
   return {
     'images': images,
     'cursor': newCursor
@@ -101,26 +103,30 @@ async function randomQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor
   }
 
   if (cursor) {
-    let [faves, views, comments, id, random_id] = cursor;
+    let [faves, views, comments, id, rowid] = cursor;
     // if this is the initial data load we want to include the current image
     let comparator = initial ? ">=" : ">";
     images = await worker.db.query(`
       select
-        views, faves, comments, id, server, secret, original_secret, width, height, random_id from images
+        rowid, * from images
       where
-        random_id ${comparator} ${random_id}
+        rowid ${comparator} ${rowid}
+      order by
+        rowid
       limit ${limit};`) as Image[];
   } else {
     images = await worker.db.query(`
       select
-        views, faves, comments, id, server, secret, original_secret, width, height, random_id from images
+        rowid, * from images
       where
-        random_id > abs(random() % (select max(random_id) from images))
+        rowid > abs(random() % (select max(rowid) from images))
+      order by
+        rowid
       limit ${limit};`) as Image[];
   }
 
   let lastImage = images[images.length - 1];
-  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.random_id];
+  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.rowid];
   return {
     'images': images,
     'cursor': newCursor
@@ -156,7 +162,7 @@ function base64ToObj(base64: string) {
 var million = { id: "16706133232", server: "8645", secret: "8917aa0792", original_secret: "2c38e0ccb2", width: 496, height: 212, faves: 0, comments: 0, views: 702 };
 var tenThousand = { id: "21272868031", server: "5700", secret: "6e7eb06136", original_secret: "b64fcb8bcc", width: 1564, height: 1784, faves: 2, comments: 0, views: 1352 };
 
-type Cursor = [Image["faves"], Image["views"], Image["comments"], Image["id"], Image["random_id"]];
+type Cursor = [Image["faves"], Image["views"], Image["comments"], Image["id"], Image["rowid"]];
 
 
 function updateUrlHash(image?: Image | null, route?: Route | null) {
@@ -175,7 +181,7 @@ function updateUrlHash(image?: Image | null, route?: Route | null) {
   } else if (image === null) {
     cursor = null;
   } else {
-    cursor = [image.faves, image.views, image.comments, image.id, image.random_id];
+    cursor = [image.faves, image.views, image.comments, image.id, image.rowid];
   }
   if (cursor) {
     newHash += '/' + objToBase64(cursor);
