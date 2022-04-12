@@ -14,8 +14,12 @@ import {
   flickrOrigUrl,
 } from "./utils";
 import { initWorker } from "./db";
-import { NinjaKeys } from "ninja-keys";
+// import { NinjaKeys } from "ninja-keys";
+import { init } from "commandbar";
+init('a38a2a14');
+window.CommandBar.boot('foo');
 
+window.CommandBar.addRouter(router);
 
 interface Image {
   rowid: number;
@@ -29,36 +33,36 @@ interface Image {
   comments: number;
   views: number;
 }
-const ninja = document.querySelector('ninja-keys') as NinjaKeys;
-ninja.data = [
-  {
-    id: 'Random',
-    title: 'Show random images',
-    mdIcon: 'casino',
-    // parent: 'Theme',
-    handler: () => {
-      updateUrlHash(null, "random");
-    },
-  },
-  {
-    id: 'Most Popular',
-    title: 'Show most popular images',
-    mdIcon: 'favorite',
-    // parent: 'Theme',
-    handler: () => {
-      updateUrlHash(null, "popular");
-    },
-  },
-  {
-    id: 'Random Popular',
-    title: 'Show random images that have be favourited by at least one user',
-    mdIcon: 'favorite',
-    // parent: 'Theme',
-    handler: () => {
-      updateUrlHash(null, "randompopular");
-    },
-  },
-];
+// const ninja = document.querySelector('ninja-keys') as NinjaKeys;
+// ninja.data = [
+//   {
+//     id: 'Random',
+//     title: 'Show random images',
+//     mdIcon: 'casino',
+//     // parent: 'Theme',
+//     handler: () => {
+//       updateUrlHash(null, "random");
+//     },
+//   },
+//   {
+//     id: 'Most Popular',
+//     title: 'Show most popular images',
+//     mdIcon: 'favorite',
+//     // parent: 'Theme',
+//     handler: () => {
+//       updateUrlHash(null, "popular");
+//     },
+//   },
+//   {
+//     id: 'Random Popular',
+//     title: 'Show random images that have be favourited by at least one user',
+//     mdIcon: 'favorite',
+//     // parent: 'Theme',
+//     handler: () => {
+//       updateUrlHash(null, "randompopular");
+//     },
+//   },
+// ];
 
 async function popularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
   let images;
@@ -202,6 +206,13 @@ var tenThousand = { id: "21272868031", server: "5700", secret: "6e7eb06136", ori
 
 type Cursor = [Image["faves"], Image["views"], Image["comments"], Image["id"], Image["rowid"]];
 
+
+function router(route: string) {
+  // check if string is of type Route
+  if (parseCurrentURLHash().route !== route) {
+    updateUrlHash(null, route as Route);
+  }
+}
 
 function updateUrlHash(image?: Image | null, route?: Route | null) {
   if (!image && !route) {
@@ -369,7 +380,7 @@ async function main() {
         return;
       }
     }
-
+    window.CommandBar.addContext("currentRoute", newRoute);
     onRouteChange(newRoute);
   }
 
