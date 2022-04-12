@@ -49,6 +49,15 @@ ninja.data = [
       updateUrlHash(null, "popular");
     },
   },
+  {
+    id: 'Random Popular',
+    title: 'Show random images that have be favourited by at least one user',
+    mdIcon: 'favorite',
+    // parent: 'Theme',
+    handler: () => {
+      updateUrlHash(null, "randompopular");
+    },
+  },
 ];
 
 async function popularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
@@ -58,7 +67,7 @@ async function popularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Curso
   }
 
   if (cursor) {
-    let [faves, views, comments, id] = cursor;
+    let [faves, views, comments, id, rowid] = cursor;
     // if this is the initial data load we want to include the current image
     let comparator = initial ? "<=" : "<";
     images = await worker.db.query(`
@@ -88,12 +97,41 @@ async function popularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Curso
   }
 }
 
-function randomNumbers(max: number, count: number) {
-  let result = [];
-  for (let i = 0; i < count; i++) {
-    result.push(Math.floor(Math.random() * max));
+async function randomPopularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
+  let images;
+  if (limit < 1) {
+    throw "limit must be a positive number";
   }
-  return result;
+
+  if (cursor) {
+    let [faves, views, comments, id, rowid] = cursor;
+    // if this is the initial data load we want to include the current image
+    let comparator = initial ? ">=" : ">";
+    images = await worker.db.query(`
+      select
+        rowid, * from images
+      where
+        (rowid ${comparator} ${rowid}) and faves > 0
+      order by
+        rowid
+      limit ${limit};`) as Image[];
+  } else {
+    images = await worker.db.query(`
+      select
+        rowid, * from images
+      where
+        (rowid >= abs(random() % (select max(rowid) from images))) and faves > 0
+      order by
+        rowid
+      limit ${limit};`) as Image[];
+  }
+
+  let lastImage = images[images.length - 1];
+  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.rowid];
+  return {
+    'images': images,
+    'cursor': newCursor
+  }
 }
 
 async function randomQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
@@ -190,20 +228,20 @@ function updateUrlHash(image?: Image | null, route?: Route | null) {
   location.hash = newHash;
 }
 
-type Route = "popular" | "random";
+type Route = "popular" | "random" | "randompopular";
 
 function parseURLHash(hash: string): { cursor: Cursor | null, route: Route | null } {
   if (hash.length > 1) {
-    let route: "random" | "popular" | null = null;
+    let route: Route | null = null;
     let [rawRoute, b64] = hash.substring(1).split("/");
     let cursor = null;
     if (b64) {
       cursor = base64ToObj(b64);
     }
-    if (!["random", "popular"].includes(rawRoute)) {
+    if (!["random", "popular", "randompopular"].includes(rawRoute)) {
       route = null;
     } else {
-      route = rawRoute as "random" | "popular";
+      route = rawRoute as Route;
     }
     return {route, cursor};
   } else {
@@ -219,6 +257,7 @@ function parseCurrentURLHash(): { cursor: Cursor | null, route: Route | null } {
 var ROUTES = {
   "random": randomQuery,
   "popular": popularQuery,
+  "randompopular": randomPopularQuery,
 }
 const DEFAULT_ROUTE = "random";
 
