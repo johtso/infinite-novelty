@@ -7,14 +7,12 @@ import "../node_modules/@ecodev/natural-gallery-js/natural-gallery.css";
 import "photoswipe/dist/photoswipe.css";
 import "photoswipe/dist/default-skin/default-skin.css";
 import PhotoSwipe from "photoswipe";
-// import "ninja-keys";
 import {
   idFromFlickrUrl,
   flickrThumbUrl,
   flickrOrigUrl,
 } from "./utils";
 import { initWorker } from "./db";
-// import { NinjaKeys } from "ninja-keys";
 import { init } from "commandbar";
 init('a38a2a14');
 window.CommandBar.boot('foo');
