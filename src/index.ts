@@ -7,7 +7,7 @@ import "../node_modules/@ecodev/natural-gallery-js/natural-gallery.css";
 import "photoswipe/dist/photoswipe.css";
 import "photoswipe/dist/default-skin/default-skin.css";
 import PhotoSwipe from "photoswipe";
-import "ninja-keys";
+// import "ninja-keys";
 import {
   idFromFlickrUrl,
   flickrThumbUrl,
