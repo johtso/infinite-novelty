@@ -215,7 +215,6 @@ type Cursor = [Image["faves"], Image["views"], Image["comments"], Image["id"], I
 function router(route: string) {
   // check if string is of type Route
   if (parseCurrentURLHash().route !== route) {
-    console.log({ route });
     updateUrlHash(null, route as Route);
   }
 }
@@ -284,7 +283,6 @@ var gallery = null as Masonry | null;
 
 function initialise(
     worker: WorkerHttpvfs,
-    cursors: { [key: string]: Cursor },
     allImages: { [id: string]: Image },
     ) {
   let galleryRef = document.getElementById('gallery') as HTMLElement;
@@ -304,30 +302,25 @@ function initialise(
     },
     photoswipeRef
   );
-
+  
+  const noopPromise = new Promise((resolve) => {resolve(null)});
+  var lastQuery: Promise<any> = noopPromise;
+  var currentCursor: Cursor | null = parseCurrentURLHash().cursor;
   gallery.addEventListener('pagination', function (ev) {
-    let cursor = cursors[ev.detail.offset.toString()];
-
-    // set location anchor to the cursor
-    if (ev.detail.offset) {
-      console.assert(cursor);
-    }
-
     let isInitialPage = (ev.detail.offset == 0);
-    if (isInitialPage) {
-      let currCursor = parseCurrentURLHash().cursor;
-      if (currCursor) {
-        cursor = currCursor;
+    lastQuery = lastQuery.then(() => {
+      if (ev.detail.offset && !currentCursor) {
+        console.log("no cursor");
       }
-    }
-    currentQuery(worker, ev.detail.limit, cursor, isInitialPage)
-      .then(({ images, cursor }) => {
-        for (let image of images) {
-          allImages[image.id] = image;
-        }
-        cursors[ev.detail.offset + ev.detail.limit] = cursor;
-        gallery.addItems(images.map(marshalPhoto));
-      });
+      currentQuery(worker, ev.detail.limit, currentCursor, isInitialPage)
+        .then(({ images, cursor }) => {
+          for (let image of images) {
+            allImages[image.id] = image;
+          }
+          currentCursor = cursor;
+          gallery.addItems(images.map(marshalPhoto));
+        });
+    });
   });
   
   var photoswipe: PhotoSwipe<any>;
@@ -366,7 +359,6 @@ function initialise(
 async function main() {
   const worker = await initWorker();
   var allImages = {} as { [id: string]: Image };
-  let cursors = {} as { [key: string]: Cursor };
   
   window.addEventListener('hashchange', function (evt) {
     onHashChange(evt.newURL, evt.oldURL);
@@ -398,7 +390,7 @@ async function main() {
   function onRouteChange(route: Route) {
     currentQuery = ROUTES[route];
     if (!gallery) {
-      gallery = initialise(worker, cursors, allImages);
+      gallery = initialise(worker, allImages);
     } else {
       gallery.clear();
       let loadingSpinner = document.getElementsByClassName('loadingspinner')[0] as HTMLElement;
