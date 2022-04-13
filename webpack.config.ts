@@ -18,7 +18,7 @@ module.exports = (env: any, argv: any) => {
     plugins.push(
       new CopyPlugin({
         patterns: [
-          { from: '../iabi_data/temp.sqlite', to: 'db.sqlite' },
+          { from: '../iabi_data/db.3.sqlite', to: 'db.sqlite' },
         ]
       })
     )

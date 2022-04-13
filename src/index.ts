@@ -31,36 +31,6 @@ interface Image {
   comments: number;
   views: number;
 }
-// const ninja = document.querySelector('ninja-keys') as NinjaKeys;
-// ninja.data = [
-//   {
-//     id: 'Random',
-//     title: 'Show random images',
-//     mdIcon: 'casino',
-//     // parent: 'Theme',
-//     handler: () => {
-//       updateUrlHash(null, "random");
-//     },
-//   },
-//   {
-//     id: 'Most Popular',
-//     title: 'Show most popular images',
-//     mdIcon: 'favorite',
-//     // parent: 'Theme',
-//     handler: () => {
-//       updateUrlHash(null, "popular");
-//     },
-//   },
-//   {
-//     id: 'Random Popular',
-//     title: 'Show random images that have be favourited by at least one user',
-//     mdIcon: 'favorite',
-//     // parent: 'Theme',
-//     handler: () => {
-//       updateUrlHash(null, "randompopular");
-//     },
-//   },
-// ];
 
 async function popularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
   let images;
@@ -123,6 +93,43 @@ async function randomPopularQuery(worker: WorkerHttpvfs, limit: number, cursor?:
         rowid, * from images
       where
         (rowid >= abs(random() % (select max(rowid) from images))) and faves > 0
+      order by
+        rowid
+      limit ${limit};`) as Image[];
+  }
+
+  let lastImage = images[images.length - 1];
+  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.rowid];
+  return {
+    'images': images,
+    'cursor': newCursor
+  }
+}
+
+async function randomOverlookedQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
+  let images;
+  if (limit < 1) {
+    throw "limit must be a positive number";
+  }
+
+  if (cursor) {
+    let [faves, views, comments, id, rowid] = cursor;
+    // if this is the initial data load we want to include the current image
+    let comparator = initial ? ">=" : ">";
+    images = await worker.db.query(`
+      select
+        rowid, * from images
+      where
+        (rowid ${comparator} ${rowid}) and views < 50 and faves = 0
+      order by
+        rowid
+      limit ${limit};`) as Image[];
+  } else {
+    images = await worker.db.query(`
+      select
+        rowid, * from images
+      where
+        (rowid >= abs(random() % (select max(rowid) from images))) and views < 50 and faves = 0
       order by
         rowid
       limit ${limit};`) as Image[];
@@ -208,6 +215,7 @@ type Cursor = [Image["faves"], Image["views"], Image["comments"], Image["id"], I
 function router(route: string) {
   // check if string is of type Route
   if (parseCurrentURLHash().route !== route) {
+    console.log({ route });
     updateUrlHash(null, route as Route);
   }
 }
@@ -237,7 +245,7 @@ function updateUrlHash(image?: Image | null, route?: Route | null) {
   location.hash = newHash;
 }
 
-type Route = "popular" | "random" | "randompopular";
+type Route = "popular" | "random" | "randompopular" | "randomoverlooked";
 
 function parseURLHash(hash: string): { cursor: Cursor | null, route: Route | null } {
   if (hash.length > 1) {
@@ -247,7 +255,7 @@ function parseURLHash(hash: string): { cursor: Cursor | null, route: Route | nul
     if (b64) {
       cursor = base64ToObj(b64);
     }
-    if (!["random", "popular", "randompopular"].includes(rawRoute)) {
+    if (!["random", "popular", "randompopular", "randomoverlooked"].includes(rawRoute)) {
       route = null;
     } else {
       route = rawRoute as Route;
@@ -267,6 +275,7 @@ var ROUTES = {
   "random": randomQuery,
   "popular": popularQuery,
   "randompopular": randomPopularQuery,
+  "randomoverlooked": randomOverlookedQuery,
 }
 const DEFAULT_ROUTE = "random";
 
@@ -297,8 +306,6 @@ function initialise(
   );
 
   gallery.addEventListener('pagination', function (ev) {
-    console.log("pagination", ev.detail);
-    
     let cursor = cursors[ev.detail.offset.toString()];
 
     // set location anchor to the cursor
@@ -313,7 +320,6 @@ function initialise(
         cursor = currCursor;
       }
     }
-    console.log("pagination cursor", cursor);
     currentQuery(worker, ev.detail.limit, cursor, isInitialPage)
       .then(({ images, cursor }) => {
         for (let image of images) {
