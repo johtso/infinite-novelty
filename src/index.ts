@@ -276,7 +276,7 @@ var ROUTES = {
   "randompopular": randomPopularQuery,
   "randomoverlooked": randomOverlookedQuery,
 }
-const DEFAULT_ROUTE = "random";
+const DEFAULT_ROUTE = "popular";
 
 var currentQuery = ROUTES[DEFAULT_ROUTE];
 var gallery = null as Masonry | null;
