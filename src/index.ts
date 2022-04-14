@@ -12,173 +12,12 @@ import {
   flickrThumbUrl,
   flickrOrigUrl,
 } from "./utils";
-import { initWorker } from "./db";
+import { initWorker, queries, Image, Cursor, QUERY_NAMES } from "./db";
 import { init } from "commandbar";
 init('a38a2a14');
 window.CommandBar.boot('foo');
 
 window.CommandBar.addRouter(router);
-
-interface Image {
-  rowid: number;
-  id: string;
-  server: string;
-  secret: string;
-  original_secret: string;
-  width: number;
-  height: number;
-  faves: number;
-  comments: number;
-  views: number;
-}
-
-async function popularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
-  let images;
-  if (limit < 1) {
-    throw "limit must be a positive number";
-  }
-
-  if (cursor) {
-    let [faves, views, comments, id, rowid] = cursor;
-    // if this is the initial data load we want to include the current image
-    let comparator = initial ? "<=" : "<";
-    images = await worker.db.query(`
-      select
-        rowid, * from images
-      where
-        ((faves, views, comments, id) ${comparator} (${faves}, ${views}, ${comments}, '${id}')) and faves > 0
-      order by
-        faves desc, views desc, comments desc, id desc
-      limit ${limit};`) as Image[];
-  } else {
-    images = await worker.db.query(`
-      select
-        rowid, * from images
-      where
-        faves > 0
-      order by
-        faves desc, views desc, comments desc, id desc
-      limit ${limit};`) as Image[];
-  }
-
-  let lastImage = images[images.length - 1];
-  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.rowid];
-  return {
-    'images': images,
-    'cursor': newCursor
-  }
-}
-
-async function randomPopularQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
-  let images;
-  if (limit < 1) {
-    throw "limit must be a positive number";
-  }
-
-  if (cursor) {
-    let [faves, views, comments, id, rowid] = cursor;
-    // if this is the initial data load we want to include the current image
-    let comparator = initial ? ">=" : ">";
-    images = await worker.db.query(`
-      select
-        rowid, * from images
-      where
-        (rowid ${comparator} ${rowid}) and faves > 0
-      order by
-        rowid
-      limit ${limit};`) as Image[];
-  } else {
-    images = await worker.db.query(`
-      select
-        rowid, * from images
-      where
-        (rowid >= abs(random() % (select max(rowid) from images))) and faves > 0
-      order by
-        rowid
-      limit ${limit};`) as Image[];
-  }
-
-  let lastImage = images[images.length - 1];
-  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.rowid];
-  return {
-    'images': images,
-    'cursor': newCursor
-  }
-}
-
-async function randomOverlookedQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
-  let images;
-  if (limit < 1) {
-    throw "limit must be a positive number";
-  }
-
-  if (cursor) {
-    let [faves, views, comments, id, rowid] = cursor;
-    // if this is the initial data load we want to include the current image
-    let comparator = initial ? ">=" : ">";
-    images = await worker.db.query(`
-      select
-        rowid, * from images
-      where
-        (rowid ${comparator} ${rowid}) and views < 50 and faves = 0
-      order by
-        rowid
-      limit ${limit};`) as Image[];
-  } else {
-    images = await worker.db.query(`
-      select
-        rowid, * from images
-      where
-        (rowid >= abs(random() % (select max(rowid) from images))) and views < 50 and faves = 0
-      order by
-        rowid
-      limit ${limit};`) as Image[];
-  }
-
-  let lastImage = images[images.length - 1];
-  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.rowid];
-  return {
-    'images': images,
-    'cursor': newCursor
-  }
-}
-
-async function randomQuery(worker: WorkerHttpvfs, limit: number, cursor?: Cursor | null, initial?: boolean): Promise<{ images: Image[], cursor: Cursor }> {
-  let images;
-  if (limit < 1) {
-    throw "limit must be a positive number";
-  }
-
-  if (cursor) {
-    let [faves, views, comments, id, rowid] = cursor;
-    // if this is the initial data load we want to include the current image
-    let comparator = initial ? ">=" : ">";
-    images = await worker.db.query(`
-      select
-        rowid, * from images
-      where
-        rowid ${comparator} ${rowid}
-      order by
-        rowid
-      limit ${limit};`) as Image[];
-  } else {
-    images = await worker.db.query(`
-      select
-        rowid, * from images
-      where
-        rowid > abs(random() % (select max(rowid) from images))
-      order by
-        rowid
-      limit ${limit};`) as Image[];
-  }
-
-  let lastImage = images[images.length - 1];
-  let newCursor: Cursor = [lastImage.faves, lastImage.views, lastImage.comments, lastImage.id, lastImage.rowid];
-  return {
-    'images': images,
-    'cursor': newCursor
-  }
-}
 
 
 function marshalPhoto(image: Image) {
@@ -206,10 +45,6 @@ function base64ToObj(base64: string) {
   return JSON.parse(json);
 }
 
-var million = { id: "16706133232", server: "8645", secret: "8917aa0792", original_secret: "2c38e0ccb2", width: 496, height: 212, faves: 0, comments: 0, views: 702 };
-var tenThousand = { id: "21272868031", server: "5700", secret: "6e7eb06136", original_secret: "b64fcb8bcc", width: 1564, height: 1784, faves: 2, comments: 0, views: 1352 };
-
-type Cursor = [Image["faves"], Image["views"], Image["comments"], Image["id"], Image["rowid"]];
 
 
 function router(route: string) {
@@ -235,7 +70,7 @@ function updateUrlHash(image?: Image | null, route?: Route | null) {
   } else if (image === null) {
     cursor = null;
   } else {
-    cursor = [image.faves, image.views, image.comments, image.id, image.rowid];
+    cursor = {"faves": image.faves, "views": image.views, "comments": image.comments, "id": image.id, "rowid": image.rowid};
   }
   if (cursor) {
     newHash += '/' + objToBase64(cursor);
@@ -244,7 +79,10 @@ function updateUrlHash(image?: Image | null, route?: Route | null) {
   location.hash = newHash;
 }
 
-type Route = "popular" | "random" | "randompopular" | "randomoverlooked";
+const ROUTES = QUERY_NAMES;
+type Route = typeof ROUTES[number];
+const DEFAULT_ROUTE: Route = "popular";
+var currentRoute: Route = DEFAULT_ROUTE;
 
 function parseURLHash(hash: string): { cursor: Cursor | null, route: Route | null } {
   if (hash.length > 1) {
@@ -254,7 +92,7 @@ function parseURLHash(hash: string): { cursor: Cursor | null, route: Route | nul
     if (b64) {
       cursor = base64ToObj(b64);
     }
-    if (!["random", "popular", "randompopular", "randomoverlooked"].includes(rawRoute)) {
+    if (!ROUTES.includes(rawRoute)) {
       route = null;
     } else {
       route = rawRoute as Route;
@@ -270,15 +108,7 @@ function parseCurrentURLHash(): { cursor: Cursor | null, route: Route | null } {
   return parseURLHash(hash);
 }
 
-var ROUTES = {
-  "random": randomQuery,
-  "popular": popularQuery,
-  "randompopular": randomPopularQuery,
-  "randomoverlooked": randomOverlookedQuery,
-}
-const DEFAULT_ROUTE = "popular";
 
-var currentQuery = ROUTES[DEFAULT_ROUTE];
 var gallery = null as Masonry | null;
 
 function initialise(
@@ -307,12 +137,13 @@ function initialise(
   var lastQuery: Promise<any> = noopPromise;
   var currentCursor: Cursor | null = parseCurrentURLHash().cursor;
   gallery.addEventListener('pagination', function (ev) {
+    // get the new cursor from the return value of the last query
     let isInitialPage = (ev.detail.offset == 0);
     lastQuery = lastQuery.then(() => {
       if (ev.detail.offset && !currentCursor) {
         console.log("no cursor");
       }
-      currentQuery(worker, ev.detail.limit, currentCursor, isInitialPage)
+      queries[currentRoute](worker, ev.detail.limit, currentCursor, isInitialPage)
         .then(({ images, cursor }) => {
           for (let image of images) {
             allImages[image.id] = image;
@@ -388,7 +219,7 @@ async function main() {
   }
 
   function onRouteChange(route: Route) {
-    currentQuery = ROUTES[route];
+    currentRoute = route;
     if (!gallery) {
       gallery = initialise(worker, allImages);
     } else {
